@@ -60,6 +60,12 @@
             min-width: 120px;
             text-align: center;
         }
+
+        /* 下载按钮加载动画 */
+        .download-loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
     </style>
 </head>
 
@@ -82,6 +88,11 @@
                 <button id="query-btn"
                     class="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-100 transition mt-4">
                     <i class="fa fa-search mr-1"></i>确定查询
+                </button>
+                <!-- 新增下载Excel按钮 -->
+                <button id="download-excel-btn"
+                    class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition mt-4">
+                    <i class="fa fa-download mr-1"></i>下载订单
                 </button>
                 <div id="loading-status" class="flex items-center ml-auto mt-4">
                     <i class="fa fa-refresh fa-spin mr-2"></i>
@@ -198,6 +209,8 @@
         const endTimeInput = document.getElementById('end-time');
         const queryBtn = document.getElementById('query-btn');
         const timeRangeText = document.getElementById('time-range-text');
+        // 新增下载按钮元素
+        const downloadExcelBtn = document.getElementById('download-excel-btn');
 
         // 数据展示元素（新增订单金额）
         const totalOrderNumberEl = document.getElementById('totalOrderNumber');
@@ -224,6 +237,10 @@
             // Token刷新接口
             refreshToken: {
                 url: 'https://api-gateway.wasu.cn/charging-station/admin-api/system/auth/refresh-token'
+            },
+            // 新增Excel导出接口
+            exportExcel: {
+                url: 'https://api-gateway.wasu.cn/charging-station/admin-api/charging-station/user-charging/export'
             },
             // 公共请求头
             headers: {
@@ -412,6 +429,91 @@
             }
         }
 
+        // ========== 新增Excel下载方法 ==========
+        async function downloadExcelFile(startTime, endTime, retryCount = 0) {
+            // 校验时间范围
+            if (!validateTimeRange(startTime, endTime)) {
+                return;
+            }
+
+            // 设置按钮加载状态
+            const originalBtnHtml = downloadExcelBtn.innerHTML;
+            downloadExcelBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>下载中...';
+            downloadExcelBtn.classList.add('download-loading');
+
+            try {
+                // 构造导出接口参数
+                const exportParams = {
+                    pageNo: 1,
+                    pageSize: 10,
+                    'settlementTime[0]': formatTimeForApi(startTime),
+                    'settlementTime[1]': formatTimeForApi(endTime),
+                    settlementStatus: 2
+                };
+
+                // 拼接完整请求URL
+                const queryString = buildQueryString(exportParams);
+                const fullUrl = `${API_CONFIG.exportExcel.url}?${queryString}`;
+
+                // 构造请求头（包含最新的Access Token）
+                const requestHeaders = {
+                    'tenant-id': '1',
+                    'Authorization': `Bearer ${getAccessToken()}`
+                };
+
+                // 发送GET请求获取Excel文件
+                const response = await fetch(fullUrl, {
+                    method: 'GET',
+                    headers: requestHeaders,
+                    mode: 'cors',
+                    responseType: 'blob' // 重要：指定响应类型为二进制流
+                });
+
+                // 处理401 Token过期
+                if (response.status === 401 && retryCount < 1) {
+                    console.log('下载Excel Token过期，尝试刷新Token...');
+                    const refreshSuccess = await refreshToken();
+                    if (refreshSuccess) {
+                        return downloadExcelFile(startTime, endTime, retryCount + 1);
+                    }
+                    throw new Error('Token已过期且刷新失败，请重新登录');
+                }
+
+                if (!response.ok) {
+                    throw new Error(`下载失败：${response.status} ${response.statusText}`);
+                }
+
+                // 处理下载文件
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                
+                // 设置下载文件名
+                const startDate = formatTimeForDisplay(startTime);
+                const endDate = formatTimeForDisplay(endTime);
+                a.download = `充电订单_${startDate}_${endDate}.xlsx`;
+                
+                a.href = downloadUrl;
+                document.body.appendChild(a);
+                a.click();
+                
+                // 清理资源
+                window.URL.revokeObjectURL(downloadUrl);
+                document.body.removeChild(a);
+
+                console.log('Excel文件下载成功');
+                alert('Excel文件下载成功！');
+
+            } catch (error) {
+                console.error('下载Excel失败：', error);
+                alert(`下载失败：${error.message}`);
+            } finally {
+                // 恢复按钮状态
+                downloadExcelBtn.innerHTML = originalBtnHtml;
+                downloadExcelBtn.classList.remove('download-loading');
+            }
+        }
+
         // 查询按钮点击事件
         queryBtn.addEventListener('click', () => {
             const startTime = startTimeInput.value;
@@ -421,6 +523,13 @@
                 // 调用查询函数
                 fetchChargingData(startTime, endTime);
             }
+        });
+
+        // 新增下载按钮点击事件
+        downloadExcelBtn.addEventListener('click', () => {
+            const startTime = startTimeInput.value;
+            const endTime = endTimeInput.value;
+            downloadExcelFile(startTime, endTime);
         });
 
         // 重新加载按钮点击事件
