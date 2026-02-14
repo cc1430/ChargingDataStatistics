@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>充电数据统计H5页面</title>
+    <!-- 引入Tailwind CSS简化样式 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入图标库 -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        /* 自定义过渡效果 */
+        .card-transition {
+            transition: all 0.3s ease;
+        }
+
+        .card-transition:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        /* 数字动画效果 */
+        .number-animate {
+            animation: countUp 1.5s ease-out;
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 时间选择器样式优化 */
+        input[type="datetime-local"] {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+            color: #374151;
+        }
+
+        /* 数据卡片行布局适配 */
+        .data-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .data-item {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+    <!-- 页面头部 -->
+    <header class="bg-blue-600 text-white sticky top-0 z-10">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-xl font-bold mb-3">充电数据统计</h1>
+            <!-- 时间选择器区域 -->
+            <div class="flex flex-wrap gap-3 items-center">
+                <div class="flex flex-col">
+                    <label class="text-sm mb-1">开始时间</label>
+                    <input type="datetime-local" id="start-time" value="2025-08-01T00:00"
+                        class="bg-white text-gray-800">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-sm mb-1">结束时间</label>
+                    <input type="datetime-local" id="end-time" value="2026-02-13T23:59" class="bg-white text-gray-800">
+                </div>
+                <button id="query-btn"
+                    class="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-100 transition mt-4">
+                    <i class="fa fa-search mr-1"></i>确定查询
+                </button>
+                <div id="loading-status" class="flex items-center ml-auto mt-4">
+                    <i class="fa fa-refresh fa-spin mr-2"></i>
+                    <span>加载中...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 核心内容区：3个板块 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 加载提示 -->
+        <div id="loading-container" class="flex justify-center items-center py-20">
+            <div class="text-center">
+                <i class="fa fa-circle-o-notch fa-spin text-4xl text-blue-600 mb-4"></i>
+                <p class="text-gray-600">正在获取充电数据...</p>
+            </div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div id="error-container" class="hidden flex justify-center items-center py-20">
+            <div class="text-center">
+                <i class="fa fa-exclamation-circle text-4xl text-red-500 mb-4"></i>
+                <p class="text-gray-600 mb-4" id="error-message">数据加载失败，请刷新重试</p>
+                <button id="retry-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                    重新加载
+                </button>
+            </div>
+        </div>
+
+        <!-- 数据展示区域（初始隐藏） -->
+        <div id="data-container" class="hidden grid grid-cols-1 gap-6">
+            <!-- 板块1：核心数据（订单总数+订单金额+服务费+充电费） -->
+            <section class="bg-white rounded-lg shadow-md p-6 card-transition">
+                <div class="flex items-center mb-6">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fa fa-file-text-o text-blue-600 text-2xl"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold">核心充电数据</h2>
+                </div>
+                <!-- 核心数据行布局：同一行展示所有关键数据 -->
+                <div class="number-animate data-row">
+                    <!-- 订单总数 -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">订单总数</p>
+                        <p class="text-3xl font-bold text-blue-600" id="totalOrderNumber">0</p>
+                    </div>
+                    <!-- 新增：订单金额（服务费+充电费） -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">订单金额（总计）</p>
+                        <p class="text-3xl font-bold text-purple-600" id="totalOrderAmount">0.00</p>
+                    </div>
+                    <!-- 充电服务费 -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">充电服务费</p>
+                        <p class="text-3xl font-bold text-green-600" id="totalOrderServiceCharge">0.00</p>
+                    </div>
+                    <!-- 充电费总计 -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">充电费总计</p>
+                        <p class="text-3xl font-bold text-orange-600" id="totalOrderElectricityBill">0.00</p>
+                    </div>
+                </div>
+                <p class="text-gray-500 mt-4 text-center" id="time-range-text">统计周期：2025-08-01 至 2026-02-13</p>
+                <p class="text-gray-500 mt-1 text-center text-sm">金额单位：元（原始数据单位：分）</p>
+            </section>
+
+            <!-- 板块2：预留板块（空） -->
+            <section class="bg-white rounded-lg shadow-md p-6 card-transition">
+                <div class="flex items-center mb-4">
+                    <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fa fa-puzzle-piece text-gray-600 text-2xl"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold">预留板块1</h2>
+                </div>
+                <div class="text-gray-400 text-center py-8">
+                    <p>该板块暂未启用，预留后续使用</p>
+                </div>
+            </section>
+
+            <!-- 板块3：预留板块（空） -->
+            <section class="bg-white rounded-lg shadow-md p-6 card-transition">
+                <div class="flex items-center mb-4">
+                    <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fa fa-puzzle-piece text-gray-600 text-2xl"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold">预留板块2</h2>
+                </div>
+                <div class="text-gray-400 text-center py-8">
+                    <p>该板块暂未启用，预留后续使用</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 页面底部 -->
+    <footer class="bg-gray-800 text-white py-6 mt-auto">
+        <div class="container mx-auto px-4 text-center text-sm">
+            <p>© 2026 充电数据统计平台 版权所有</p>
+            <p class="mt-2 text-gray-400">数据来源：wasu.cn 充电场站接口</p>
+        </div>
+    </footer>
+
+    <script>
+        // 页面元素获取
+        const loadingContainer = document.getElementById('loading-container');
+        const errorContainer = document.getElementById('error-container');
+        const dataContainer = document.getElementById('data-container');
+        const errorMessage = document.getElementById('error-message');
+        const retryBtn = document.getElementById('retry-btn');
+        const loadingStatus = document.getElementById('loading-status');
+        // 时间选择器和查询按钮元素
+        const startTimeInput = document.getElementById('start-time');
+        const endTimeInput = document.getElementById('end-time');
+        const queryBtn = document.getElementById('query-btn');
+        const timeRangeText = document.getElementById('time-range-text');
+
+        // 数据展示元素（新增订单金额）
+        const totalOrderNumberEl = document.getElementById('totalOrderNumber');
+        const totalOrderAmountEl = document.getElementById('totalOrderAmount'); // 新增
+        const totalOrderServiceChargeEl = document.getElementById('totalOrderServiceCharge');
+        const totalOrderElectricityBillEl = document.getElementById('totalOrderElectricityBill');
+
+        // 本地存储KEY定义
+        const STORAGE_KEYS = {
+            ACCESS_TOKEN: 'charging_access_token',
+            REFRESH_TOKEN: 'charging_refresh_token'
+        };
+
+        // 初始Token（首次使用）
+        const INITIAL_ACCESS_TOKEN = 'a61d91c67cd644e08f49c25c08568f57';
+        const INITIAL_REFRESH_TOKEN = 'ea2362b0d0974884af2ad3bc535292f4';
+
+        // 接口基础配置
+        const API_CONFIG = {
+            // 数据查询接口
+            getTotal: {
+                url: 'https://api-gateway.wasu.cn/charging-station/admin-api/charging-station/user-charging/getTotal'
+            },
+            // Token刷新接口
+            refreshToken: {
+                url: 'https://api-gateway.wasu.cn/charging-station/admin-api/system/auth/refresh-token'
+            },
+            // 公共请求头
+            headers: {
+                'tenant-id': '1',
+                'Content-Type': 'application/json'
+            }
+        };
+
+        // ========== Token 本地存储方法 ==========
+        // 获取本地存储的Access Token
+        function getAccessToken() {
+            return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) || INITIAL_ACCESS_TOKEN;
+        }
+
+        // 获取本地存储的Refresh Token
+        function getRefreshToken() {
+            return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN) || INITIAL_REFRESH_TOKEN;
+        }
+
+        // 保存Token到本地存储
+        function saveTokensToLocal(accessToken, refreshToken) {
+            localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+            localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+        }
+
+        // ========== Refresh Token 接口封装 ==========
+        async function refreshToken() {
+            try {
+                const refreshToken = getRefreshToken();
+                const url = `${API_CONFIG.refreshToken.url}?refreshToken=${refreshToken}`;
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: API_CONFIG.headers,
+                    mode: 'cors'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`刷新Token失败：${response.status} ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.code !== 200) {
+                    throw new Error(`刷新Token接口返回错误：${result.msg || '未知错误'}`);
+                }
+
+                // 保存新Token到本地
+                const { accessToken, refreshToken: newRefreshToken } = result.data;
+                saveTokensToLocal(accessToken, newRefreshToken);
+
+                console.log('Token刷新成功，新Access Token：', accessToken);
+                return true;
+
+            } catch (error) {
+                console.error('Token刷新失败：', error);
+                // 刷新失败清空本地Token（可选）
+                // localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+                // localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+                return false;
+            }
+        }
+
+        // 拼接GET请求参数
+        function buildQueryString(params) {
+            return Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+        }
+
+        // 格式化时间：将datetime-local的格式(YYYY-MM-DDTHH:MM)转为接口需要的(YYYY-MM-DD HH:MM:SS)
+        function formatTimeForApi(timeStr) {
+            if (!timeStr) return '';
+            return timeStr.replace('T', ' ') + ':00';
+        }
+
+        // 格式化时间用于页面展示（简化为YYYY-MM-DD）
+        function formatTimeForDisplay(timeStr) {
+            if (!timeStr) return '';
+            return timeStr.split('T')[0];
+        }
+
+        // 校验时间范围
+        function validateTimeRange(startTime, endTime) {
+            if (!startTime || !endTime) {
+                alert('请选择完整的开始和结束时间！');
+                return false;
+            }
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            if (end < start) {
+                alert('结束时间不能早于开始时间！');
+                return false;
+            }
+            return true;
+        }
+
+        // ========== 核心数据请求方法（带Token刷新重试） ==========
+        async function fetchChargingData(startTime, endTime, retryCount = 0) {
+            try {
+                // 显示加载状态
+                loadingContainer.classList.remove('hidden');
+                errorContainer.classList.add('hidden');
+                dataContainer.classList.add('hidden');
+                loadingStatus.innerHTML = '<i class="fa fa-refresh fa-spin mr-2"></i><span>加载中...</span>';
+
+                // 构造接口参数
+                const apiParams = {
+                    pageNo: 1,
+                    pageSize: 10,
+                    'settlementTime[0]': formatTimeForApi(startTime),
+                    'settlementTime[1]': formatTimeForApi(endTime),
+                    settlementStatus: 2
+                };
+
+                // 拼接完整请求URL
+                const queryString = buildQueryString(apiParams);
+                const fullUrl = `${API_CONFIG.getTotal.url}?${queryString}`;
+
+                // 构造请求头（包含最新的Access Token）
+                const requestHeaders = {
+                    ...API_CONFIG.headers,
+                    'Authorization': `Bearer ${getAccessToken()}`
+                };
+
+                // 发送GET请求
+                const response = await fetch(fullUrl, {
+                    method: 'GET',
+                    headers: requestHeaders,
+                    mode: 'cors' // 处理跨域，若接口不支持CORS需后端配置
+                });
+
+                // 检查其他响应状态
+                if (!response.ok) {
+                    throw new Error(`请求失败：${response.status} ${response.statusText}`);
+                }
+
+                // 解析响应数据
+                const result = await response.json();
+
+                // 检查接口返回码
+                if (result.code === 401) {
+                    // 处理401未授权（Token过期） 防止无限重试，最多重试1次
+                    if (retryCount < 1) {
+                        console.log('Access Token过期，尝试刷新Token...');
+                        // 刷新Token
+                        const refreshSuccess = await refreshToken();
+                        if (refreshSuccess) {
+                            // 刷新成功后重新请求数据
+                            return fetchChargingData(startTime, endTime, retryCount + 1);
+                        }
+                    }
+                    throw new Error('Token已过期且刷新失败，请重新登录');
+
+                } else if (result.code !== 200) {
+                    throw new Error(`接口返回错误：${result.msg || '未知错误'}`);
+                }
+
+                // 处理数据：分转元（除以100，保留2位小数）
+                const data = result.data;
+                const serviceChargeYuan = (data.totalOrderServiceCharge / 100).toFixed(2);
+                const electricityBillYuan = (data.totalOrderElectricityBill / 100).toFixed(2);
+                // 新增：计算订单金额（服务费+充电费）
+                const totalAmountYuan = ((data.totalOrderServiceCharge + data.totalOrderElectricityBill) / 100).toFixed(2);
+
+                // 更新页面数据
+                totalOrderNumberEl.textContent = data.totalOrderNumber.toLocaleString(); // 数字千分位格式化
+                totalOrderAmountEl.textContent = totalAmountYuan; // 新增：订单金额
+                totalOrderServiceChargeEl.textContent = serviceChargeYuan;
+                totalOrderElectricityBillEl.textContent = electricityBillYuan;
+                // 更新统计周期文本
+                timeRangeText.textContent = `统计周期：${formatTimeForDisplay(startTime)} 至 ${formatTimeForDisplay(endTime)}`;
+
+                // 显示数据区域，隐藏加载状态
+                loadingContainer.classList.add('hidden');
+                dataContainer.classList.remove('hidden');
+                loadingStatus.innerHTML = '<i class="fa fa-check mr-2"></i><span>加载完成</span>';
+
+            } catch (error) {
+                // 显示错误信息
+                console.error('获取数据失败：', error);
+                loadingContainer.classList.add('hidden');
+                errorContainer.classList.remove('hidden');
+                errorMessage.textContent = `加载失败：${error.message}`;
+                loadingStatus.innerHTML = '<i class="fa fa-exclamation-circle mr-2"></i><span>加载失败</span>';
+            }
+        }
+
+        // 查询按钮点击事件
+        queryBtn.addEventListener('click', () => {
+            const startTime = startTimeInput.value;
+            const endTime = endTimeInput.value;
+            // 校验时间范围
+            if (validateTimeRange(startTime, endTime)) {
+                // 调用查询函数
+                fetchChargingData(startTime, endTime);
+            }
+        });
+
+        // 重新加载按钮点击事件
+        retryBtn.addEventListener('click', () => {
+            // 重试时使用当前选择的时间
+            fetchChargingData(startTimeInput.value, endTimeInput.value);
+        });
+
+        // 页面加载完成后自动获取数据（使用默认时间）
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchChargingData(startTimeInput.value, endTimeInput.value);
+        });
+    </script>
+</body>
+
+</html>
