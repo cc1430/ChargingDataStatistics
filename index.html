@@ -37,8 +37,8 @@
             }
         }
 
-        /* 时间选择器样式优化 */
-        input[type="datetime-local"] {
+        /* 日期选择器样式优化 */
+        input[type="date"] {
             border: 1px solid #e5e7eb;
             border-radius: 0.375rem;
             padding: 0.5rem;
@@ -66,6 +66,13 @@
             pointer-events: none;
             opacity: 0.7;
         }
+
+        /* 汇总数据颜色定制 - 丰富且不重复 */
+        .color-teal { color: #14b8a6; }    /* 青绿色 - 充电桩数量 */
+        .color-indigo { color: #6366f1; }  /* 靛蓝色 - 订单总数 */
+        .color-rose { color: #f43f5e; }    /* 玫瑰红 - 订单金额 */
+        .color-amber { color: #f59e0b; }   /* 琥珀色 - 充电服务费 */
+        .color-cyan { color: #06b6d4; }    /* 青蓝色 - 充电费总计 */
     </style>
 </head>
 
@@ -74,16 +81,15 @@
     <header class="bg-blue-600 text-white sticky top-0 z-10">
         <div class="container mx-auto px-4 py-4">
             <h1 class="text-xl font-bold mb-3">充电数据统计</h1>
-            <!-- 时间选择器区域 -->
+            <!-- 日期选择器区域 -->
             <div class="flex flex-wrap gap-3 items-center">
                 <div class="flex flex-col">
-                    <label class="text-sm mb-1">开始时间</label>
-                    <input type="datetime-local" id="start-time" value="2025-08-01T00:00"
-                        class="bg-white text-gray-800">
+                    <label class="text-sm mb-1">开始日期</label>
+                    <input type="date" id="start-date" class="bg-white text-gray-800">
                 </div>
                 <div class="flex flex-col">
-                    <label class="text-sm mb-1">结束时间</label>
-                    <input type="datetime-local" id="end-time" value="2026-02-13T23:59" class="bg-white text-gray-800">
+                    <label class="text-sm mb-1">结束日期</label>
+                    <input type="date" id="end-date" class="bg-white text-gray-800">
                 </div>
                 <button id="query-btn"
                     class="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-100 transition mt-4">
@@ -160,17 +166,43 @@
                 <p class="text-gray-500 mt-1 text-center text-sm">金额单位：元（原始数据单位：分）</p>
             </section>
 
-            <!-- 板块2：预留板块（空） -->
+            <!-- 板块2：充电数据汇总 -->
             <section class="bg-white rounded-lg shadow-md p-6 card-transition">
-                <div class="flex items-center mb-4">
-                    <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4">
-                        <i class="fa fa-puzzle-piece text-gray-600 text-2xl"></i>
+                <div class="flex items-center mb-6">
+                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fa fa-bar-chart text-purple-600 text-2xl"></i>
                     </div>
-                    <h2 class="text-lg font-semibold">预留板块1</h2>
+                    <h2 class="text-lg font-semibold">充电数据汇总</h2>
                 </div>
-                <div class="text-gray-400 text-center py-8">
-                    <p>该板块暂未启用，预留后续使用</p>
+                <!-- 充电数据汇总行布局 -->
+                <div class="number-animate data-row">
+                    <!-- 充电桩数量 -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">充电桩数量</p>
+                        <p class="text-3xl font-bold color-teal" id="totalDeviceNumber">0</p>
+                    </div>
+                    <!-- 订单总数（去掉汇总） -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">订单总数</p>
+                        <p class="text-3xl font-bold color-indigo" id="summaryOrderNumber">0</p>
+                    </div>
+                    <!-- 订单金额（去掉汇总） -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">订单金额</p>
+                        <p class="text-3xl font-bold color-rose" id="summaryOrderAmount">0.00</p>
+                    </div>
+                    <!-- 充电服务费（去掉汇总） -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">充电服务费</p>
+                        <p class="text-3xl font-bold color-amber" id="summaryServiceCharge">0.00</p>
+                    </div>
+                    <!-- 充电费总计（去掉汇总） -->
+                    <div class="data-item">
+                        <p class="text-sm text-gray-500 mb-1">充电费总计</p>
+                        <p class="text-3xl font-bold color-cyan" id="summaryElectricityBill">0.00</p>
+                    </div>
                 </div>
+                <p class="text-gray-500 mt-4 text-center text-sm">汇总数据包含历史累计值</p>
             </section>
 
             <!-- 板块3：预留板块（空） -->
@@ -204,9 +236,9 @@
         const errorMessage = document.getElementById('error-message');
         const retryBtn = document.getElementById('retry-btn');
         const loadingStatus = document.getElementById('loading-status');
-        // 时间选择器和查询按钮元素
-        const startTimeInput = document.getElementById('start-time');
-        const endTimeInput = document.getElementById('end-time');
+        // 日期选择器和查询按钮元素
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
         const queryBtn = document.getElementById('query-btn');
         const timeRangeText = document.getElementById('time-range-text');
         // 新增下载按钮元素
@@ -217,6 +249,13 @@
         const totalOrderAmountEl = document.getElementById('totalOrderAmount'); // 新增
         const totalOrderServiceChargeEl = document.getElementById('totalOrderServiceCharge');
         const totalOrderElectricityBillEl = document.getElementById('totalOrderElectricityBill');
+
+        // 充电数据汇总元素
+        const totalDeviceNumberEl = document.getElementById('totalDeviceNumber');
+        const summaryOrderNumberEl = document.getElementById('summaryOrderNumber');
+        const summaryOrderAmountEl = document.getElementById('summaryOrderAmount');
+        const summaryServiceChargeEl = document.getElementById('summaryServiceCharge');
+        const summaryElectricityBillEl = document.getElementById('summaryElectricityBill');
 
         // 本地存储KEY定义
         const STORAGE_KEYS = {
@@ -242,12 +281,31 @@
             exportExcel: {
                 url: 'https://api-gateway.wasu.cn/charging-station/admin-api/charging-station/user-charging/export'
             },
+            // 充电桩数量接口
+            getDeviceTotal: {
+                url: 'https://api-gateway.wasu.cn/charging-station/admin-api/charging-station/device/page'
+            },
             // 公共请求头
             headers: {
                 'tenant-id': '1',
                 'Content-Type': 'application/json'
             }
         };
+
+        // ========== 工具函数：获取前一天日期并格式化 ==========
+        function getYesterdayDate() {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            return formatDateToISO(yesterday);
+        }
+
+        // 格式化日期为YYYY-MM-DD格式
+        function formatDateToISO(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
 
         // ========== Token 本地存储方法 ==========
         // 获取本地存储的Access Token
@@ -297,9 +355,6 @@
 
             } catch (error) {
                 console.error('Token刷新失败：', error);
-                // 刷新失败清空本地Token（可选）
-                // localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-                // localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
                 return false;
             }
         }
@@ -311,35 +366,113 @@
                 .join('&');
         }
 
-        // 格式化时间：将datetime-local的格式(YYYY-MM-DDTHH:MM)转为接口需要的(YYYY-MM-DD HH:MM:SS)
-        function formatTimeForApi(timeStr) {
-            if (!timeStr) return '';
-            return timeStr.replace('T', ' ') + ':00';
+        // 格式化日期：拼接固定的时分秒（开始时间00:00:00，结束时间23:59:59）
+        function formatDateForApi(dateStr, isEnd = false) {
+            if (!dateStr) return '';
+            return isEnd ? `${dateStr} 23:59:59` : `${dateStr} 00:00:00`;
         }
 
-        // 格式化时间用于页面展示（简化为YYYY-MM-DD）
-        function formatTimeForDisplay(timeStr) {
-            if (!timeStr) return '';
-            return timeStr.split('T')[0];
-        }
-
-        // 校验时间范围
-        function validateTimeRange(startTime, endTime) {
-            if (!startTime || !endTime) {
-                alert('请选择完整的开始和结束时间！');
+        // 校验日期范围
+        function validateDateRange(startDate, endDate) {
+            if (!startDate || !endDate) {
+                alert('请选择完整的开始和结束日期！');
                 return false;
             }
-            const start = new Date(startTime);
-            const end = new Date(endTime);
+            const start = new Date(startDate);
+            const end = new Date(endDate);
             if (end < start) {
-                alert('结束时间不能早于开始时间！');
+                alert('结束日期不能早于开始日期！');
                 return false;
             }
             return true;
         }
 
+        // ========== 获取充电桩数量接口 ==========
+        async function fetchDeviceTotal(retryCount = 0) {
+            try {
+                // 构造接口参数
+                const apiParams = {
+                    pageNo: 1,
+                    pageSize: 10
+                };
+
+                // 拼接完整请求URL
+                const queryString = buildQueryString(apiParams);
+                const fullUrl = `${API_CONFIG.getDeviceTotal.url}?${queryString}`;
+
+                // 构造请求头（包含最新的Access Token）
+                const requestHeaders = {
+                    ...API_CONFIG.headers,
+                    'Authorization': `Bearer ${getAccessToken()}`
+                };
+
+                // 发送GET请求
+                const response = await fetch(fullUrl, {
+                    method: 'GET',
+                    headers: requestHeaders,
+                    mode: 'cors'
+                });
+
+                // 检查其他响应状态
+                if (!response.ok) {
+                    throw new Error(`请求失败：${response.status} ${response.statusText}`);
+                }
+
+                // 解析响应数据
+                const result = await response.json();
+
+                // 检查接口返回码
+                if (result.code === 401) {
+                    // 处理401未授权（Token过期） 防止无限重试，最多重试1次
+                    if (retryCount < 1) {
+                        console.log('Access Token过期，尝试刷新Token...');
+                        // 刷新Token
+                        const refreshSuccess = await refreshToken();
+                        if (refreshSuccess) {
+                            // 刷新成功后重新请求数据
+                            return fetchDeviceTotal(retryCount + 1);
+                        }
+                    }
+                    throw new Error('Token已过期且刷新失败，请重新登录');
+
+                } else if (result.code !== 200) {
+                    throw new Error(`接口返回错误：${result.msg || '未知错误'}`);
+                }
+
+                // 更新充电桩数量
+                totalDeviceNumberEl.textContent = result.data.total.toLocaleString();
+                return result.data.total;
+
+            } catch (error) {
+                console.error('获取充电桩数量失败：', error);
+                totalDeviceNumberEl.textContent = '获取失败';
+                return 0;
+            }
+        }
+
+        // ========== 计算汇总数据 ==========
+        function calculateSummaryData() {
+            // 获取核心数据
+            const coreOrderNumber = parseInt(totalOrderNumberEl.textContent.replace(/,/g, '')) || 0;
+            const coreOrderAmount = parseFloat(totalOrderAmountEl.textContent) || 0;
+            const coreServiceCharge = parseFloat(totalOrderServiceChargeEl.textContent) || 0;
+            const coreElectricityBill = parseFloat(totalOrderElectricityBillEl.textContent) || 0;
+
+            // 计算汇总数据
+            const summaryOrderNumber = coreOrderNumber + 56725;
+            const summaryOrderAmount = (coreOrderAmount + 41215.53).toFixed(2);
+            const summaryServiceCharge = (coreServiceCharge + 23794.94).toFixed(2);
+            const summaryElectricityBill = (coreElectricityBill + 17420.59).toFixed(2);
+
+            // 更新汇总数据展示
+            summaryOrderNumberEl.textContent = summaryOrderNumber.toLocaleString();
+            summaryOrderAmountEl.textContent = summaryOrderAmount;
+            summaryServiceChargeEl.textContent = summaryServiceCharge;
+            summaryElectricityBillEl.textContent = summaryElectricityBill;
+        }
+
         // ========== 核心数据请求方法（带Token刷新重试） ==========
-        async function fetchChargingData(startTime, endTime, retryCount = 0) {
+        async function fetchChargingData(startDate, endDate, retryCount = 0) {
             try {
                 // 显示加载状态
                 loadingContainer.classList.remove('hidden');
@@ -351,8 +484,8 @@
                 const apiParams = {
                     pageNo: 1,
                     pageSize: 10,
-                    'settlementTime[0]': formatTimeForApi(startTime),
-                    'settlementTime[1]': formatTimeForApi(endTime),
+                    'settlementTime[0]': formatDateForApi(startDate),
+                    'settlementTime[1]': formatDateForApi(endDate, true),
                     settlementStatus: 2
                 };
 
@@ -390,7 +523,7 @@
                         const refreshSuccess = await refreshToken();
                         if (refreshSuccess) {
                             // 刷新成功后重新请求数据
-                            return fetchChargingData(startTime, endTime, retryCount + 1);
+                            return fetchChargingData(startDate, endDate, retryCount + 1);
                         }
                     }
                     throw new Error('Token已过期且刷新失败，请重新登录');
@@ -412,7 +545,13 @@
                 totalOrderServiceChargeEl.textContent = serviceChargeYuan;
                 totalOrderElectricityBillEl.textContent = electricityBillYuan;
                 // 更新统计周期文本
-                timeRangeText.textContent = `统计周期：${formatTimeForDisplay(startTime)} 至 ${formatTimeForDisplay(endTime)}`;
+                timeRangeText.textContent = `统计周期：${startDate} 至 ${endDate}`;
+
+                // 获取充电桩数量
+                await fetchDeviceTotal();
+                
+                // 计算并更新汇总数据
+                calculateSummaryData();
 
                 // 显示数据区域，隐藏加载状态
                 loadingContainer.classList.add('hidden');
@@ -430,9 +569,9 @@
         }
 
         // ========== 新增Excel下载方法 ==========
-        async function downloadExcelFile(startTime, endTime, retryCount = 0) {
-            // 校验时间范围
-            if (!validateTimeRange(startTime, endTime)) {
+        async function downloadExcelFile(startDate, endDate, retryCount = 0) {
+            // 校验日期范围
+            if (!validateDateRange(startDate, endDate)) {
                 return;
             }
 
@@ -446,8 +585,8 @@
                 const exportParams = {
                     pageNo: 1,
                     pageSize: 10,
-                    'settlementTime[0]': formatTimeForApi(startTime),
-                    'settlementTime[1]': formatTimeForApi(endTime),
+                    'settlementTime[0]': formatDateForApi(startDate),
+                    'settlementTime[1]': formatDateForApi(endDate, true),
                     settlementStatus: 2
                 };
 
@@ -474,7 +613,7 @@
                     console.log('下载Excel Token过期，尝试刷新Token...');
                     const refreshSuccess = await refreshToken();
                     if (refreshSuccess) {
-                        return downloadExcelFile(startTime, endTime, retryCount + 1);
+                        return downloadExcelFile(startDate, endDate, retryCount + 1);
                     }
                     throw new Error('Token已过期且刷新失败，请重新登录');
                 }
@@ -489,8 +628,6 @@
                 const a = document.createElement('a');
                 
                 // 设置下载文件名
-                const startDate = formatTimeForDisplay(startTime);
-                const endDate = formatTimeForDisplay(endTime);
                 a.download = `充电订单_${startDate}_${endDate}.xlsx`;
                 
                 a.href = downloadUrl;
@@ -516,33 +653,42 @@
 
         // 查询按钮点击事件
         queryBtn.addEventListener('click', () => {
-            const startTime = startTimeInput.value;
-            const endTime = endTimeInput.value;
-            // 校验时间范围
-            if (validateTimeRange(startTime, endTime)) {
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            // 校验日期范围
+            if (validateDateRange(startDate, endDate)) {
                 // 调用查询函数
-                fetchChargingData(startTime, endTime);
+                fetchChargingData(startDate, endDate);
             }
         });
 
         // 新增下载按钮点击事件
         downloadExcelBtn.addEventListener('click', () => {
-            const startTime = startTimeInput.value;
-            const endTime = endTimeInput.value;
-            downloadExcelFile(startTime, endTime);
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            downloadExcelFile(startDate, endDate);
         });
 
         // 重新加载按钮点击事件
         retryBtn.addEventListener('click', () => {
-            // 重试时使用当前选择的时间
-            fetchChargingData(startTimeInput.value, endTimeInput.value);
+            // 重试时使用当前选择的日期
+            fetchChargingData(startDateInput.value, endDateInput.value);
         });
 
-        // 页面加载完成后自动获取数据（使用默认时间）
+        // 页面加载完成后初始化日期并自动获取数据
         window.addEventListener('DOMContentLoaded', () => {
-            fetchChargingData(startTimeInput.value, endTimeInput.value);
+            // 固定开始日期为2025-08-01
+            const defaultStartDate = '2025-08-01';
+            // 获取前一天日期作为默认结束日期
+            const defaultEndDate = getYesterdayDate();
+            
+            // 设置默认日期
+            startDateInput.value = defaultStartDate;
+            endDateInput.value = defaultEndDate;
+            
+            // 自动加载数据
+            fetchChargingData(defaultStartDate, defaultEndDate);
         });
     </script>
 </body>
-
 </html>
