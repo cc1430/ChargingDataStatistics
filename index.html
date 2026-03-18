@@ -265,7 +265,7 @@
 
         // 初始Token（首次使用）
         const INITIAL_ACCESS_TOKEN = 'a61d91c67cd644e08f49c25c08568f57';
-        const INITIAL_REFRESH_TOKEN = 'ea2362b0d0974884af2ad3bc535292f4';
+        const REFRESH_TOKEN = '3a2ab6095c9e492481bb6a6d4b6c6480';
 
         // 接口基础配置
         const API_CONFIG = {
@@ -315,13 +315,12 @@
 
         // 获取本地存储的Refresh Token
         function getRefreshToken() {
-            return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN) || INITIAL_REFRESH_TOKEN;
+            return REFRESH_TOKEN;
         }
 
         // 保存Token到本地存储
-        function saveTokensToLocal(accessToken, refreshToken) {
+        function saveTokensToLocal(accessToken) {
             localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-            localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
         }
 
         // ========== Refresh Token 接口封装 ==========
@@ -348,7 +347,7 @@
 
                 // 保存新Token到本地
                 const { accessToken, refreshToken: newRefreshToken } = result.data;
-                saveTokensToLocal(accessToken, newRefreshToken);
+                saveTokensToLocal(accessToken);
 
                 console.log('Token刷新成功，新Access Token：', accessToken);
                 return true;
